@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arashi Admin Panel</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.1.0/dist/chartjs-plugin-annotation.min.js"></script>
+    <style>
+        :root {
+            --bg-main: #0b101e;
+            --bg-panel: #151a2c;
+            --border-color: #2a2f45;
+            --text-main: #ffffff;
+            --text-muted: #6b7280;
+            --neon-green: #39ff14;
+            --neon-red: #ff3333;
+            --neon-blue: #00f3ff;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            margin: 0;
+            padding: 40px;
+        }
+
+        h1 { color: var(--neon-blue); text-align: center; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 5px; }
+        .subtitle { text-align: center; color: var(--text-muted); margin-bottom: 30px; font-size: 14px; letter-spacing: 1px; text-transform: uppercase; }
+
+        .dashboard { max-width: 1000px; margin: 0 auto; }
+
+        /* Navigation Tabs */
+        .admin-nav { display: flex; gap: 10px; margin-bottom: 30px; border-bottom: 2px solid var(--border-color); padding-bottom: 10px; }
+        .nav-btn { background: transparent; border: none; color: var(--text-muted); font-size: 16px; font-weight: bold; cursor: pointer; padding: 10px 20px; text-transform: uppercase; transition: color 0.3s; }
+        .nav-btn.active { color: var(--neon-blue); border-bottom: 3px solid var(--neon-blue); margin-bottom: -13px; }
+        .nav-btn:hover { color: white; }
+
+        /* Sections */
+        .section { display: none; }
+        .section.active { display: block; animation: fadeIn 0.4s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* Approval Cards */
+        .task-card { background-color: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .task-info h3 { margin: 0 0 10px 0; color: var(--neon-blue); }
+        .task-info p { margin: 5px 0; color: var(--text-muted); font-size: 14px; }
+        .task-info span { color: white; font-weight: bold; }
+        .action-area { display: flex; flex-direction: column; gap: 10px; align-items: flex-end; }
+        .xp-input { background-color: #0b101e; border: 1px solid var(--neon-blue); color: white; padding: 8px; border-radius: 4px; width: 120px; text-align: center; font-weight: bold; }
+        .btn-group { display: flex; gap: 10px; }
+        .empty-msg { text-align: center; color: var(--text-muted); font-style: italic; margin-top: 50px; }
+
+        /* Analytics Section */
+        .controls-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; background: var(--bg-panel); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); }
+        .time-toggles { display: flex; gap: 10px; }
+        .time-btn { background: #0b101e; color: var(--text-muted); border: 1px solid var(--border-color); padding: 8px 15px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; transition: all 0.2s; }
+        .time-btn.active { background: rgba(0, 243, 255, 0.1); border-color: var(--neon-blue); color: var(--neon-blue); }
+        
+        .search-box { display: flex; gap: 10px; }
+        .search-input { background: #0b101e; border: 1px solid var(--border-color); color: white; padding: 8px 15px; border-radius: 4px; outline: none; }
+        .search-input:focus { border-color: var(--neon-blue); }
+
+        .chart-container { background: var(--bg-panel); border: 1px solid var(--border-color); padding: 20px; border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+
+        /* Event Marker Form */
+        .event-form { margin-top: 20px; padding: 15px; background: rgba(255, 51, 51, 0.05); border: 1px dashed var(--neon-red); border-radius: 8px; display: flex; gap: 15px; align-items: center; }
+        .event-form input { background: #0b101e; border: 1px solid var(--border-color); color: white; padding: 8px; border-radius: 4px; color-scheme: dark; }
+        .event-title { color: var(--neon-red); font-weight: bold; font-size: 14px; text-transform: uppercase; }
+
+        /* Global Buttons */
+        .btn { border: none; padding: 10px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; text-transform: uppercase; font-size: 12px; transition: 0.2s; }
+        .btn:hover { opacity: 0.8; transform: scale(1.02); }
+        .btn-approve { background-color: var(--neon-green); color: black; box-shadow: 0 0 10px rgba(57, 255, 20, 0.3); }
+        .btn-decline { background-color: var(--neon-red); color: white; box-shadow: 0 0 10px rgba(255, 51, 51, 0.3); }
+        .btn-primary { background-color: var(--neon-blue); color: black; }
+        .btn-danger { background-color: transparent; border: 1px solid var(--neon-red); color: var(--neon-red); }
+        .btn-danger:hover { background-color: rgba(255, 51, 51, 0.1); }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard">
+        <h1>Arashi Command Center</h1>
+        <div class="subtitle">Secure Administrator Terminal</div>
+
+        <div class="admin-nav">
+            <button class="nav-btn active" onclick="switchMainTab('approvals')" id="tab-approvals">Live Approvals</button>
+            <button class="nav-btn" onclick="switchMainTab('analytics')" id="tab-analytics">Squad Analytics</button>
+        </div>
+        
+        <div id="sec-approvals" class="section active">
+            <div id="taskList">
+                <div class="empty-msg">Connecting to live feed...</div>
+            </div>
+        </div>
+
+        <div id="sec-analytics" class="section">
+            
+            <div class="controls-row">
+                <div class="time-toggles" id="time-toggles">
+                    <button class="time-btn active" onclick="updateChartTimeframe(7)">7 Days</button>
+                    <button class="time-btn" onclick="updateChartTimeframe(30)">30 Days</button>
+                    <button class="time-btn" onclick="updateChartTimeframe(90)">3 Months</button>
+                    <button class="time-btn" onclick="updateChartTimeframe(180)">6 Months</button>
+                </div>
+
+                <div class="search-box">
+                    <input type="text" id="opSearchInput" class="search-input" placeholder="Operative Name...">
+                    <button class="btn btn-primary" onclick="searchOperative()">Search</button>
+                    <button class="btn btn-danger" onclick="clearSearch()">View All</button>
+                </div>
+            </div>
+
+            <h3 id="chartTitle" style="color: var(--text-main); margin-bottom: 15px;">General Squad Activity</h3>
+            
+            <div class="chart-container">
+                <canvas id="adminChart" width="100" height="40"></canvas>
+            </div>
+
+            <div class="event-form" id="eventMarkerUI">
+                <div class="event-title">Highlight Historic Event:</div>
+                <input type="date" id="eventStart">
+                <span style="color: var(--text-muted);">to</span>
+                <input type="date" id="eventEnd">
+                <input type="text" id="eventName" placeholder="e.g. BBZ War">
+                <button class="btn btn-danger" style="background: var(--neon-red); color: white;" onclick="saveChartEvent()">Add Label</button>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getFirestore, collection, query, where, onSnapshot, doc, updateDoc, getDoc, setDoc, increment, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+        // Register the annotation plugin for Chart.js
+        Chart.register(window['chartjs-plugin-annotation']);
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDDKZ__5e85tghXnfPvJX3znyHdo3-zyGc",
+            authDomain: "arashi-tb.firebaseapp.com",
+            projectId: "arashi-tb",
+            storageBucket: "arashi-tb.firebasestorage.app",
+            messagingSenderId: "1006006160775",
+            appId: "1:1006006160775:web:0511885fb5b4f87b011722"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // --- TAB SWITCHING ---
+        window.switchMainTab = function(tabName) {
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.section').forEach(sec => sec.classList.remove('active'));
+            
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+            document.getElementById(`sec-${tabName}`).classList.add('active');
+
+            if(tabName === 'analytics') {
+                loadAnalyticsData();
+            }
+        }
+
+        // ==========================================
+        // 1. LIVE APPROVALS LOGIC
+        // ==========================================
+        const q = query(collection(db, "pendingTasks"), where("status", "==", "Pending"));
+        onSnapshot(q, (querySnapshot) => {
+            const taskListEl = document.getElementById('taskList');
+            taskListEl.innerHTML = ''; 
+
+            if (querySnapshot.empty) {
+                taskListEl.innerHTML = '<div class="empty-msg">No pending tasks. The squad is resting!</div>';
+                return;
+            }
+
+            querySnapshot.forEach((documentSnapshot) => {
+                const task = documentSnapshot.data();
+                const taskId = documentSnapshot.id;
+
+                const card = document.createElement('div');
+                card.className = 'task-card';
+                card.id = `card-${taskId}`;
+                
+                card.innerHTML = `
+                    <div class="task-info">
+                        <h3>Operative: <span>${task.operative}</span></h3>
+                        <p>Action: <span>${task.taskType}</span></p>
+                        <p>Details / Hours: <span>${task.details}</span></p>
+                        <p>Witness: <span>${task.witness || "None"}</span></p>
+                    </div>
+                    <div class="action-area">
+                        <input type="number" id="xp-${taskId}" class="xp-input" placeholder="XP to Award">
+                        <div class="btn-group">
+                            <button class="btn btn-approve" onclick="window.approveTask('${taskId}', '${task.operative}')">Approve</button>
+                            <button class="btn btn-decline" onclick="window.declineTask('${taskId}')">Decline</button>
+                        </div>
+                    </div>
+                `;
+                taskListEl.appendChild(card);
+            });
+        });
+
+        window.approveTask = async function(taskId, operativeName) {
+            const xpInput = document.getElementById(`xp-${taskId}`).value;
+            const xpAwarded = parseInt(xpInput);
+
+            if (!xpAwarded || xpAwarded <= 0) {
+                alert("Please enter a valid amount of XP to award.");
+                return;
+            }
+
+            try {
+                const taskRef = doc(db, "pendingTasks", taskId);
+                await updateDoc(taskRef, { status: "Approved", xpAwarded: xpAwarded });
+
+                const userRef = doc(db, "users", operativeName);
+                const userDoc = await getDoc(userRef);
+
+                if (userDoc.exists()) {
+                    await updateDoc(userRef, { bankedXP: increment(xpAwarded) });
+                } else {
+                    await setDoc(userRef, { name: operativeName, xp: 0, bankedXP: xpAwarded, rank: "Genin", role: "user" });
+                }
+            } catch (error) {
+                console.error("Error approving task: ", error);
+                alert("Failed to approve. Check console.");
+            }
+        }
+
+        window.declineTask = async function(taskId) {
+            if(!confirm("Are you sure you want to decline this task?")) return;
+            try {
+                const taskRef = doc(db, "pendingTasks", taskId);
+                await updateDoc(taskRef, { status: "Declined" });
+            } catch (error) {
+                console.error("Error declining task: ", error);
+            }
+        }
+
+        // ==========================================
+        // 2. ANALYTICS & CHART LOGIC
+        // ==========================================
+        let adminChartInstance = null;
+        let currentDays = 7;
+        let currentOperativeFilter = null;
+        let allApprovedTasks = [];
+        let allCustomEvents = [];
+
+        // Format Date to YYYY-MM-DD for exact matching
+        function formatDate(date) {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        async function loadAnalyticsData() {
+            // Fetch all approved tasks
+            const qTasks = query(collection(db, "pendingTasks"), where("status", "==", "Approved"));
+            const snapTasks = await getDocs(qTasks);
+            allApprovedTasks = [];
+            snapTasks.forEach(doc => {
+                const data = doc.data();
+                if(data.timestamp) {
+                    allApprovedTasks.push({
+                        operative: data.operative,
+                        xp: data.xpAwarded || 0,
+                        dateStr: formatDate(data.timestamp.toDate())
+                    });
+                }
+            });
+
+            // Fetch custom event highlights
+            const qEvents = collection(db, "adminEvents");
+            const snapEvents = await getDocs(qEvents);
+            allCustomEvents = [];
+            snapEvents.forEach(doc => {
+                allCustomEvents.push(doc.data());
+            });
+
+            renderChart();
+        }
+
+        window.updateChartTimeframe = function(days) {
+            currentDays = days;
+            const buttons = document.querySelectorAll('.time-btn');
+            buttons.forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            renderChart();
+        }
+
+        window.searchOperative = function() {
+            const input = document.getElementById('opSearchInput').value.trim();
+            if(input === "") return;
+            currentOperativeFilter = input;
+            document.getElementById('chartTitle').innerText = `Activity Report: ${input}`;
+            document.getElementById('eventMarkerUI').style.display = 'none'; // Hide event marker on individual search
+            renderChart();
+        }
+
+        window.clearSearch = function() {
+            document.getElementById('opSearchInput').value = "";
+            currentOperativeFilter = null;
+            document.getElementById('chartTitle').innerText = `General Squad Activity`;
+            document.getElementById('eventMarkerUI').style.display = 'flex';
+            renderChart();
+        }
+
+        function renderChart() {
+            // 1. Generate the Date Labels for the X-Axis
+            let dateLabels = [];
+            let xpDataMap = {};
+            
+            for(let i = currentDays - 1; i >= 0; i--) {
+                let d = new Date();
+                d.setDate(d.getDate() - i);
+                let dateStr = formatDate(d);
+                dateLabels.push(dateStr);
+                xpDataMap[dateStr] = 0;
+            }
+
+            // 2. Aggregate XP into the map
+            allApprovedTasks.forEach(task => {
+                // If we are searching for a specific operative, skip others
+                if (currentOperativeFilter && task.operative.toLowerCase() !== currentOperativeFilter.toLowerCase()) return;
+                
+                if (xpDataMap[task.dateStr] !== undefined) {
+                    xpDataMap[task.dateStr] += task.xp;
+                }
+            });
+
+            const dataPoints = dateLabels.map(day => xpDataMap[day]);
+
+            // 3. Build Annotation Objects for the Highlights (Only show on General Graph)
+            let boxAnnotations = {};
+            if (!currentOperativeFilter) {
+                allCustomEvents.forEach((ev, index) => {
+                    boxAnnotations[`event${index}`] = {
+                        type: 'box',
+                        xMin: ev.start,
+                        xMax: ev.end,
+                        backgroundColor: 'rgba(255, 51, 51, 0.15)', // Light red highlight
+                        borderWidth: 1,
+                        borderColor: '#ff3333',
+                        label: {
+                            display: true,
+                            content: ev.label,
+                            position: 'start',
+                            color: 'white',
+                            backgroundColor: '#ff3333',
+                            font: { weight: 'bold' }
+                        }
+                    };
+                });
+            }
+
+            // 4. Draw the Chart
+            const ctx = document.getElementById('adminChart').getContext('2d');
+            if (adminChartInstance) adminChartInstance.destroy();
+
+            adminChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dateLabels,
+                    datasets: [{
+                        label: currentOperativeFilter ? `${currentOperativeFilter} XP Gain` : 'Total Squad XP Gain',
+                        data: dataPoints,
+                        borderColor: currentOperativeFilter ? '#39ff14' : '#00f3ff', // Green for solo, Cyan for squad
+                        backgroundColor: currentOperativeFilter ? 'rgba(57, 255, 20, 0.1)' : 'rgba(0, 243, 255, 0.1)',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#fff',
+                        pointRadius: 4,
+                        fill: true,
+                        tension: 0.2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#1f2937' }, ticks: { color: '#9ca3af' } },
+                        x: { grid: { color: '#1f2937' }, ticks: { color: '#9ca3af' } }
+                    },
+                    plugins: { 
+                        legend: { labels: { color: '#fff' } },
+                        annotation: { annotations: boxAnnotations }
+                    }
+                }
+            });
+        }
+
+        // --- NEW: SAVE CUSTOM CHART HIGHLIGHT ---
+        window.saveChartEvent = async function() {
+            const start = document.getElementById('eventStart').value;
+            const end = document.getElementById('eventEnd').value;
+            const label = document.getElementById('eventName').value.trim();
+
+            if (!start || !end || !label) {
+                alert("Please fill out the Start Date, End Date, and Event Name.");
+                return;
+            }
+
+            if (start > end) {
+                alert("Start Date cannot be after the End Date.");
+                return;
+            }
+
+            try {
+                const newEvent = { start: start, end: end, label: label };
+                await addDoc(collection(db, "adminEvents"), newEvent);
+                
+                // Add to local array and redraw instantly
+                allCustomEvents.push(newEvent);
+                renderChart();
+
+                // Clear form
+                document.getElementById('eventStart').value = "";
+                document.getElementById('eventEnd').value = "";
+                document.getElementById('eventName').value = "";
+
+            } catch (error) {
+                console.error("Failed to save event:", error);
+                alert("Database error saving event.");
+            }
+        }
+    </script>
+</body>
+</html>
