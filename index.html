@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arashi Squad | Access Terminal</title>
+    <style>
+        :root {
+            --bg-base: #05070a;
+            --bg-panel: rgba(13, 18, 26, 0.85);
+            --border-color: #1f2937;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --accent-cyan: #00f3ff;
+            --accent-green: #39ff14;
+            --neon-red: #ff3333;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        /* Video Background */
+        .video-bg {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
+            opacity: 0.3;
+            z-index: -1;
+        }
+
+        /* Login Panel */
+        .login-container {
+            background-color: var(--bg-panel);
+            border: 1px solid var(--accent-cyan);
+            border-radius: 8px;
+            padding: 40px;
+            width: 350px;
+            box-shadow: 0 0 30px rgba(0, 243, 255, 0.15);
+            backdrop-filter: blur(10px);
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .logo-header {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .logo-header h1 {
+            margin: 0;
+            color: var(--accent-cyan);
+            font-size: 28px;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+        }
+
+        .logo-header p {
+            margin: 5px 0 0 0;
+            color: var(--text-muted);
+            font-size: 12px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        /* Forms */
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        label {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        input {
+            background-color: rgba(5, 7, 10, 0.8);
+            border: 1px solid var(--border-color);
+            color: white;
+            padding: 12px;
+            border-radius: 4px;
+            font-family: inherit;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        input:focus {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
+        }
+
+        .btn-submit {
+            background-color: transparent;
+            color: var(--accent-cyan);
+            border: 1px solid var(--accent-cyan);
+            padding: 15px;
+            font-size: 14px;
+            font-weight: 900;
+            letter-spacing: 2px;
+            border-radius: 4px;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+        }
+
+        .btn-submit:hover {
+            background-color: rgba(0, 243, 255, 0.1);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.4);
+        }
+
+        /* Toggles */
+        .mode-toggle {
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 15px;
+        }
+
+        .mode-toggle span {
+            color: var(--accent-cyan);
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        .mode-toggle span:hover {
+            color: white;
+        }
+
+        /* Error Message */
+        #error-msg {
+            color: var(--neon-red);
+            font-size: 12px;
+            text-align: center;
+            min-height: 15px;
+            font-weight: bold;
+        }
+
+        #register-section { display: none; }
+    </style>
+</head>
+<body>
+
+    <video class="video-bg" autoplay loop muted playsinline>
+        <source src="arashi.mp4" type="video/mp4">
+    </video>
+
+    <div class="login-container">
+        <div class="logo-header">
+            <h1>ARASHI</h1>
+            <p>Squad Network Terminal</p>
+        </div>
+
+        <div id="error-msg"></div>
+
+        <form id="login-form">
+            <div class="form-group">
+                <label>Operative Email</label>
+                <input type="email" id="login-email" required>
+            </div>
+            <div class="form-group" style="margin-top: 15px;">
+                <label>Passcode</label>
+                <input type="password" id="login-password" required>
+            </div>
+            <button type="submit" class="btn-submit" id="btn-login">Initialize Link</button>
+            <div class="mode-toggle">New Recruit? <span onclick="toggleMode('register')">Request Access</span></div>
+        </form>
+
+        <form id="register-section">
+            <div class="form-group">
+                <label>Operative Alias (In-Game Name)</label>
+                <input type="text" id="reg-name" required>
+            </div>
+            <div class="form-group" style="margin-top: 15px;">
+                <label>Email Address</label>
+                <input type="email" id="reg-email" required>
+            </div>
+            <div class="form-group" style="margin-top: 15px;">
+                <label>Secure Passcode</label>
+                <input type="password" id="reg-password" required>
+            </div>
+            <button type="submit" class="btn-submit" id="btn-register">Create Identity</button>
+            <div class="mode-toggle">Already an Operative? <span onclick="toggleMode('login')">Return to Login</span></div>
+        </form>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+
+        // === REPLACE WITH YOUR BRAND NEW, RESTRICTED API KEY ===
+        const firebaseConfig = {
+            apiKey: "PASTE_YOUR_NEW_API_KEY_HERE", 
+            authDomain: "arashi-tb.firebaseapp.com",
+            projectId: "arashi-tb",
+            storageBucket: "arashi-tb.firebasestorage.app",
+            messagingSenderId: "1006006160775",
+            appId: "1:1006006160775:web:0511885fb5b4f87b011722"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        // UI Toggles
+        window.toggleMode = function(mode) {
+            document.getElementById('error-msg').innerText = '';
+            if (mode === 'register') {
+                document.getElementById('login-form').style.display = 'none';
+                document.getElementById('register-section').style.display = 'flex';
+                document.getElementById('register-section').style.flexDirection = 'column';
+            } else {
+                document.getElementById('register-section').style.display = 'none';
+                document.getElementById('login-form').style.display = 'flex';
+                document.getElementById('login-form').style.flexDirection = 'column';
+            }
+        }
+
+        function showError(msg) {
+            document.getElementById('error-msg').innerText = msg;
+        }
+
+        // --- AUTH STATE LISTENER (THE REDIRECT) ---
+        onAuthStateChanged(auth, (user) => {
+            if (user && user.displayName) {
+                // REDIRECT UPDATED TO MATCH NEW FILENAME (No Spaces)
+                window.location.href = "TBApp.html";
+            }
+        });
+
+        // --- HANDLE REGISTRATION ---
+        document.getElementById('register-section').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('btn-register');
+            btn.innerText = "Encrypting...";
+
+            const email = document.getElementById('reg-email').value;
+            const password = document.getElementById('reg-password').value;
+            const operativeName = document.getElementById('reg-name').value;
+
+            try {
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                await updateProfile(userCredential.user, { displayName: operativeName });
+                
+                // The onAuthStateChanged listener at the top will automatically redirect them now!
+            } catch (error) {
+                showError("Registration Failed: " + error.message);
+                btn.innerText = "Create Identity";
+            }
+        });
+
+        // --- HANDLE LOGIN ---
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('btn-login');
+            btn.innerText = "Authenticating...";
+
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+                // The onAuthStateChanged listener at the top will automatically redirect them now!
+            } catch (error) {
+                showError("Access Denied: Invalid Credentials");
+                btn.innerText = "Initialize Link";
+            }
+        });
+    </script>
+</body>
+</html>
