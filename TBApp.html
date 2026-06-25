@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arashi Squad Client</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-base: #05070a;
+            --bg-panel: #0d121a;
+            --border-color: #1f2937;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --accent-cyan: #00f3ff;
+            --accent-green: #39ff14;
+            --neon-red: #ff3333;
+            --accent-glow: rgba(0, 243, 255, 0.2);
+            --xp-glow: rgba(57, 255, 20, 0.4);
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            height: 100vh;
+            box-sizing: border-box;
+            display: grid;
+            grid-template-columns: 400px 1fr;
+            gap: 20px;
+            overflow: hidden;
+        }
+
+        /* ----- UI CONTAINERS ----- */
+        .panel { background-color: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 4px; padding: 25px; display: flex; flex-direction: column; position: relative; }
+        .left-column { display: grid; grid-template-rows: auto 120px 1fr; gap: 20px; }
+        .right-column { display: grid; grid-template-rows: auto 1fr 250px; gap: 20px; }
+
+        /* ----- TOP LEFT: BADGE & XP ----- */
+        .profile-panel { text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+        .rank-badge { width: 180px; height: 180px; object-fit: contain; margin-bottom: 15px; filter: drop-shadow(0 0 15px var(--accent-glow)); transition: filter 0.5s ease; z-index: 2; position: relative; }
+        .rank-name { font-size: 24px; font-weight: 900; color: var(--text-main); letter-spacing: 3px; text-transform: uppercase; margin-bottom: 25px; z-index: 2; position: relative; }
+        
+        .xp-container { width: 100%; z-index: 2; position: relative; }
+        .xp-track { width: 100%; height: 24px; background-color: #000; border: 2px solid var(--border-color); border-radius: 12px; overflow: hidden; position: relative; box-shadow: inset 0 0 10px rgba(0,0,0,0.8); }
+        .xp-trail { position: absolute; top: 0; left: 0; height: 100%; width: 0%; background-color: #ffffff; box-shadow: 0 0 20px #ffffff; transition: width 0.4s ease-out; z-index: 1; }
+        .xp-fill { position: absolute; top: 0; left: 0; height: 100%; width: 0%; background: linear-gradient(90deg, #054f1e, var(--accent-green)); box-shadow: 0 0 15px var(--xp-glow); transition: width 1.8s cubic-bezier(0.1, 0.9, 0.2, 1); z-index: 2; }
+        .xp-text { margin-top: 10px; font-size: 13px; color: var(--text-muted); letter-spacing: 1px; font-weight: bold; }
+
+        /* ----- VFX & ANIMATIONS ----- */
+        .aura-red { filter: drop-shadow(0 0 25px rgba(255, 0, 0, 0.7)); animation: pulse-red 3s infinite; }
+        @keyframes pulse-red { 0% { filter: drop-shadow(0 0 15px rgba(255, 0, 0, 0.5)); } 50% { filter: drop-shadow(0 0 35px rgba(255, 50, 50, 0.9)); } 100% { filter: drop-shadow(0 0 15px rgba(255, 0, 0, 0.5)); } }
+        
+        .aura-light { filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.6)); animation: pulse-light 4s infinite; }
+        @keyframes pulse-light { 0% { filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.4)); } 50% { filter: drop-shadow(0 0 30px rgba(255, 255, 255, 0.8)); } 100% { filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.4)); } }
+
+        .idle-particle { position: absolute; width: 5px; height: 5px; border-radius: 50%; pointer-events: none; z-index: 1; opacity: 0; }
+        .idle-particle.red { background-color: var(--neon-red); box-shadow: 0 0 10px var(--neon-red), 0 0 20px #ff8888; }
+        .idle-particle.white { background-color: #ffffff; box-shadow: 0 0 10px #ffffff, 0 0 20px var(--accent-cyan); }
+
+        @keyframes rankShake {
+            0% { transform: translate(1px, 1px) rotate(0deg); filter: brightness(1) drop-shadow(0 0 15px var(--accent-cyan)); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); filter: brightness(2) drop-shadow(0 0 40px #ffffff); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); filter: brightness(3) drop-shadow(0 0 60px #ffffff); }
+        }
+        .anim-level-up { animation: rankShake 0.4s infinite; }
+        .particle { position: absolute; width: 8px; height: 8px; background-color: #ffffff; box-shadow: 0 0 15px var(--accent-cyan), 0 0 30px var(--accent-green); border-radius: 50%; pointer-events: none; z-index: 10; }
+
+        /* ----- MIDDLE LEFT: APPLY XP BANK ----- */
+        .apply-panel { display: flex; align-items: center; justify-content: center; background: radial-gradient(circle, rgba(20,30,45,1) 0%, var(--bg-panel) 100%); }
+        .btn-apply { background-color: transparent; color: var(--accent-green); border: 2px solid var(--accent-green); padding: 15px 30px; font-size: 16px; font-weight: 900; letter-spacing: 2px; border-radius: 4px; cursor: pointer; text-transform: uppercase; box-shadow: 0 0 15px rgba(57, 255, 20, 0.2), inset 0 0 10px rgba(57, 255, 20, 0.1); transition: all 0.3s ease; animation: pulse-glow 2s infinite; display: none; }
+        .btn-apply:hover { background-color: rgba(57, 255, 20, 0.1); box-shadow: 0 0 25px rgba(57, 255, 20, 0.4), inset 0 0 15px rgba(57, 255, 20, 0.2); transform: scale(1.02); }
+        
+        @keyframes pulse-glow { 0% { box-shadow: 0 0 15px rgba(57, 255, 20, 0.2); } 50% { box-shadow: 0 0 25px rgba(57, 255, 20, 0.5); } 100% { box-shadow: 0 0 15px rgba(57, 255, 20, 0.2); } }
+
+        /* ----- BOTTOM LEFT: REWARDS ----- */
+        .section-header { font-size: 12px; color: var(--accent-cyan); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; }
+        .rewards-list { list-style: none; padding: 0; margin: 0; overflow-y: auto; }
+        .rewards-list li { font-size: 13px; color: var(--text-main); padding: 10px 0; border-bottom: 1px dashed var(--border-color); display: flex; align-items: center; }
+        .rewards-list li::before { content: "✦"; color: var(--accent-cyan); margin-right: 10px; font-size: 10px; }
+
+        /* ----- TOP RIGHT: ACTIONS ----- */
+        .action-nav { display: flex; justify-content: space-between; padding: 10px; background: transparent; border: none; }
+        .nav-group-left { display: flex; gap: 15px; }
+        .nav-group-right { display: flex; gap: 15px; }
+        
+        .btn-nav { background-color: var(--bg-panel); color: var(--text-main); border: 1px solid var(--border-color); padding: 12px 25px; font-size: 12px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; transition: all 0.2s; border-radius: 4px; }
+        .btn-nav:hover { border-color: var(--accent-cyan); color: var(--accent-cyan); }
+        .btn-logout { border-color: var(--neon-red); color: var(--neon-red); }
+        .btn-logout:hover { background-color: rgba(255, 51, 51, 0.1); color: var(--neon-red); }
+        .btn-primary { background-color: var(--accent-cyan); color: #000; border: 1px solid var(--accent-cyan); }
+        .btn-primary:hover { background-color: #00b8c2; color: #000; }
+        .btn-special { border-color: var(--accent-cyan); color: var(--accent-cyan); }
+        .btn-special:hover { background-color: rgba(0, 243, 255, 0.1); }
+        
+        /* Disabled Button Style */
+        .btn-disabled { border-color: #374151; color: #6b7280; cursor: not-allowed; opacity: 0.7; }
+        .btn-disabled:hover { border-color: #374151; color: #6b7280; background-color: transparent; }
+
+        /* ----- MIDDLE RIGHT: VIDEO FEED ----- */
+        .video-container { position: relative; background-color: #000; border: 1px solid var(--border-color); border-radius: 4px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+        .video-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.3; }
+        .video-overlay { position: relative; z-index: 2; font-size: 24px; letter-spacing: 10px; color: rgba(255, 255, 255, 0.1); font-weight: 900; user-select: none; }
+
+        /* ----- BOTTOM RIGHT: HISTORY ----- */
+        .history-list { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; padding-right: 5px; height: 100%; }
+        .history-item { display: flex; justify-content: space-between; align-items: center; background-color: #0a0e14; padding: 12px 15px; border-left: 3px solid var(--border-color); font-size: 13px; }
+        .history-item.approved { border-left-color: var(--accent-green); }
+        .history-item.pending { border-left-color: var(--accent-cyan); }
+        .history-item.declined { border-left-color: var(--neon-red); }
+        .history-details { display: flex; flex-direction: column; gap: 4px; }
+        .history-date { font-size: 10px; color: var(--text-muted); }
+        .xp-gain { color: var(--accent-green); font-weight: bold; }
+        .history-list::-webkit-scrollbar { width: 6px; }
+        .history-list::-webkit-scrollbar-track { background: var(--bg-base); }
+        .history-list::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+
+        /* ----- MODAL STYLING ----- */
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(5, 7, 10, 0.9); backdrop-filter: blur(5px); }
+        .modal-content { background-color: var(--bg-panel); margin: 5% auto; padding: 30px; border: 1px solid var(--accent-cyan); border-radius: 4px; width: 600px; box-shadow: 0 0 30px rgba(0, 243, 255, 0.1); max-height: 80vh; overflow-y: auto; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; margin-bottom: 20px; }
+        .modal-header h3 { margin: 0; color: var(--accent-cyan); letter-spacing: 1px; text-transform: uppercase; }
+        .close-btn { color: var(--text-muted); font-size: 28px; font-weight: bold; cursor: pointer; }
+        .close-btn:hover { color: white; }
+        
+        .form-row { display: flex; gap: 15px; }
+        .form-group { margin-bottom: 15px; flex: 1; display: flex; flex-direction: column; }
+        .form-group label { font-size: 12px; color: var(--text-muted); margin-bottom: 5px; text-transform: uppercase; }
+        .form-control { background-color: #05070a; border: 1px solid var(--border-color); color: white; padding: 10px; border-radius: 4px; font-family: inherit; }
+        .form-control:focus { outline: none; border-color: var(--accent-cyan); }
+        .btn-submit { width: 100%; background-color: var(--accent-cyan); color: black; border: none; padding: 15px; border-radius: 4px; font-weight: 900; font-size: 14px; margin-top: 10px; cursor: pointer; text-transform: uppercase; }
+        .btn-submit:hover { background-color: #00b8c2; }
+
+        /* ----- LEADERBOARD STYLING ----- */
+        .tabs { display: flex; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); }
+        .tab { flex: 1; padding: 10px; cursor: pointer; color: var(--text-muted); font-weight: bold; text-transform: uppercase; font-size: 14px; text-align: center; transition: all 0.3s; }
+        .tab.active { color: var(--accent-cyan); border-bottom: 2px solid var(--accent-cyan); }
+        
+        .lb-list { display: flex; flex-direction: column; gap: 8px; }
+        .lb-item { display: flex; align-items: center; background-color: #05070a; border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 15px; transition: transform 0.2s; }
+        .lb-item:hover { transform: translateX(5px); border-color: var(--accent-cyan); }
+        
+        .lb-rank-num { font-size: 18px; font-weight: 900; color: var(--text-muted); width: 40px; }
+        .lb-badge { object-fit: contain; margin-right: 15px; filter: drop-shadow(0 0 5px rgba(255,255,255,0.2)); }
+        .lb-details { flex: 1; display: flex; flex-direction: column; }
+        .lb-name { font-weight: 900; color: white; text-transform: uppercase; letter-spacing: 1px; }
+        .lb-rank-name { font-size: 11px; color: var(--accent-cyan); text-transform: uppercase; }
+        .lb-xp { font-weight: 900; color: var(--accent-green); }
+
+        /* Smart Scaling for Top 3 */
+        .lb-1st { background: linear-gradient(90deg, rgba(255, 215, 0, 0.1), #05070a); border-left: 4px solid gold; padding: 20px 15px; }
+        .lb-1st .lb-rank-num { color: gold; font-size: 28px; }
+        .lb-1st .lb-badge { width: 70px; height: 70px; filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.5)); }
+        .lb-1st .lb-name { font-size: 22px; color: gold; }
+
+        .lb-2nd { background: linear-gradient(90deg, rgba(192, 192, 192, 0.1), #05070a); border-left: 4px solid silver; padding: 15px; }
+        .lb-2nd .lb-rank-num { color: silver; font-size: 24px; }
+        .lb-2nd .lb-badge { width: 55px; height: 55px; filter: drop-shadow(0 0 10px rgba(192, 192, 192, 0.5)); }
+        .lb-2nd .lb-name { font-size: 18px; color: silver; }
+
+        .lb-3rd { background: linear-gradient(90deg, rgba(205, 127, 50, 0.1), #05070a); border-left: 4px solid #cd7f32; padding: 12px 15px; }
+        .lb-3rd .lb-rank-num { color: #cd7f32; font-size: 20px; }
+        .lb-3rd .lb-badge { width: 45px; height: 45px; filter: drop-shadow(0 0 10px rgba(205, 127, 50, 0.5)); }
+        .lb-3rd .lb-name { font-size: 16px; color: #cd7f32; }
+
+        .lb-rest .lb-badge { width: 35px; height: 35px; }
+        .lb-rest .lb-name { font-size: 14px; }
+    </style>
+</head>
+<body>
+
+    <div class="left-column">
+        <div class="panel profile-panel" id="domProfilePanel">
+            <img src="Genin I.png" alt="Rank Badge" class="rank-badge" id="domRankBadge" onerror="this.src='https://via.placeholder.com/180/0d121a/00f3ff?text=BADGE'">
+            <div class="rank-name" id="domRankName">Loading...</div>
+            
+            <div class="xp-container">
+                <div class="xp-track">
+                    <div class="xp-trail" id="domXpTrail"></div>
+                    <div class="xp-fill" id="domXpFill"></div>
+                </div>
+                <div class="xp-text">
+                    XP: <span id="domCurrentXp" style="color: var(--accent-green);">0</span> / <span id="domMaxXp">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel apply-panel">
+            <button class="btn-apply" id="btnApplyXp" onclick="executeXpClaim()">APPLY XP (+0)</button>
+        </div>
+
+        <div class="panel">
+            <div class="section-header">Rewards available for you</div>
+            <ul class="rewards-list" id="domRewardsList">
+                <li>Authenticating Network...</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="right-column">
+        
+        <div class="action-nav">
+            <div class="nav-group-left">
+                <button class="btn-nav btn-special" onclick="window.openLeaderboard()">LEADERBOARDS</button>
+                <button class="btn-nav btn-special" onclick="window.openGauge()">GAUGE</button>
+                <button class="btn-nav btn-disabled" disabled>APPLY FOR LOAN (COMING SOON)</button>
+            </div>
+            <div class="nav-group-right">
+                <button class="btn-nav btn-logout" onclick="window.logoutUser()">LOGOUT</button>
+                <button class="btn-nav" id="btnPendingCount">Pending Requests (0)</button>
+                <button class="btn-nav btn-primary" onclick="window.openRequestModal()">SEND REQUEST</button>
+            </div>
+        </div>
+
+        <div class="video-container">
+            <video class="video-bg" autoplay loop muted playsinline>
+                <source src="arashi.mp4" type="video/mp4">
+            </video>
+            <div class="video-overlay">ARASHI_NETWORK</div>
+        </div>
+
+        <div class="panel">
+            <div class="section-header">Request History</div>
+            <div class="history-list" id="domHistoryList">
+                <div class="history-item pending">
+                    <span style="color: var(--text-muted);">Syncing to Arashi Database...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="taskModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Submit Task Report</h3>
+                <span class="close-btn" onclick="window.closeModals()">&times;</span>
+            </div>
+            
+            <form id="taskForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Discord Name / Operative</label>
+                        <input type="text" id="opName" class="form-control" readonly style="color: var(--accent-cyan); font-weight: bold; background-color: #0a0e14;" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Task Category / Action</label>
+                    <select id="taskCategory" class="form-control">
+                        <option>Guard Duty (Txkyo / Kyxto)</option>
+                        <option>WAR Participation</option>
+                        <option>Fort Defense (Txkyo tags)</option>
+                        <option>War Streaks</option>
+                        <option>Gang Recruitment (Pledge)</option>
+                        <option>Acquire Limited Item</option>
+                        <option>Submit Highlight Clip</option>
+                        <option>Help Allies</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Hours / Details</label>
+                        <input type="text" id="taskDetails" class="form-control" placeholder="e.g. 4 hours Txkyo" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Witness / Co-Leader</label>
+                        <input type="text" id="taskWitness" class="form-control" placeholder="e.g. Yzki/Kin">
+                    </div>
+                </div>
+                <button type="submit" class="btn-submit" id="submitBtn">TRANSMIT TO COMMAND</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="lbModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Squad Rankings</h3>
+                <span class="close-btn" onclick="window.closeModals()">&times;</span>
+            </div>
+            <div class="tabs">
+                <div class="tab active" id="tab-overall" onclick="window.switchLbTab('overall')">Overall</div>
+                <div class="tab" id="tab-monthly" onclick="window.switchLbTab('monthly')">Monthly</div>
+            </div>
+            <div class="lb-list" id="lbListContainer">
+                <div style="text-align: center; color: var(--text-muted); padding: 20px;">Loading Intel...</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="gaugeModal" class="modal">
+        <div class="modal-content" style="width: 800px;">
+            <div class="modal-header">
+                <h3>Arashi Activity Gauge (Last 7 Days)</h3>
+                <span class="close-btn" onclick="window.closeModals()">&times;</span>
+            </div>
+            <div style="background: #05070a; padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
+                <canvas id="activityChart" width="100" height="40"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, serverTimestamp, doc, onSnapshot, updateDoc, increment, query, where, getDocs, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDDKZ__5e85tghXnfPvJX3znyHdo3-zyGc",
+            authDomain: "arashi-tb.firebaseapp.com",
+            projectId: "arashi-tb",
+            storageBucket: "arashi-tb.firebasestorage.app",
+            messagingSenderId: "1006006160775",
+            appId: "1:1006006160775:web:0511885fb5b4f87b011722"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        let currentUserProfile = "";
+
+        onAuthStateChanged(auth, (user) => {
+            if (user && user.displayName) {
+                currentUserProfile = user.displayName;
+                document.getElementById('opName').value = currentUserProfile;
+                startDatabaseListeners();
+            } else {
+                // REDIRECT UPDATED TO index.html
+                window.location.href = "index.html";
+            }
+        });
+
+        window.logoutUser = function() {
+            // REDIRECT UPDATED TO index.html
+            signOut(auth).then(() => { window.location.href = "index.html"; });
+        }
+
+        let liveCurrentXP = 0;
+        let liveCurrentRank = "";
+        let isFirstLoad = true;
+        let isAnimatingLevelUp = false;
+        let idleParticleInterval;
+        let chartInstance = null; 
+
+        const rankOrder = [
+            "Genin", "Genin II", "Chunin", "Chunin II", "Jonin", "Jonin II", 
+            "Ronin", "Ronin II", "Shinobi", "Bushin", "Daimyo", "Shogun", "Emperor"
+        ];
+
+        const rankData = {
+            "Genin": { req: 10000, benefits: ["None"], image: "Genin I.png" },
+            "Genin II": { req: 15000, benefits: ["None"], image: "Genin II.png" },
+            "Chunin": { req: 15000, benefits: ["None"], image: "Chunin I.png" }, 
+            "Chunin II": { req: 25000, benefits: ["None"], image: "Chunin II.png" },
+            "Jonin": { req: 50000, benefits: ["Rank 4 in Game"], image: "Jonin I.png" },
+            "Jonin II": { req: 80000, benefits: ["Rank 4 in Game"], image: "Jonin II.png" },
+            "Ronin": { req: 80000, benefits: ["Rank 4 in Game"], image: "Ronin I.png" },
+            "Ronin II": { req: 100000, benefits: ["Rank 4 in Game"], image: "Ronin II.png" },
+            "Shinobi": { req: 100000, benefits: ["Rank 4 in Game", "Statue Spot Eligible", "Gun Skin Eligible"], image: "Shinobi.png" },
+            "Bushin": { req: 200000, benefits: ["Rank 5 in Game", "Statue Spot Eligible", "Gun Skin Eligible", "Hat Spot Eligible"], image: "Bushin.png" },
+            "Daimyo": { req: 550000, benefits: ["Rank 5 in Game", "Statue Spot Eligible", "Gun Skin Eligible", "Hat Spot Eligible", "War Leader", "Reward Priority", "Can post on Task board"], image: "Daimyo.png" },
+            "Shogun": { req: 1000000, benefits: ["Rank 5 in Game", "Statue Spot Eligible", "Gun Skin Eligible", "Hat Spot Eligible", "War Leader", "Reward Distributor", "Can post on Task board", "2K Tag Holder", "Executive Gang decisions"], image: "Shogun.png" },
+            "Emperor": { req: 2000000, benefits: ["Rank 5 in Game", "Statue Spot Eligible", "Gun Skin Eligible", "Hat Spot Eligible", "War Leader", "Reward Distributor", "Can post on Task board", "2K Tag and above Holder", "Indisputable Executive Gang decisions", "Main leader (s)"], image: "Emperor.png" }
+        };
+
+        // --- DASHBOARD LISTENERS ---
+        function startDatabaseListeners() {
+            const userDocRef = doc(db, "users", currentUserProfile);
+            onSnapshot(userDocRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    liveCurrentXP = data.xp || 0;
+                    const bankedXP = data.bankedXP || 0;
+                    const newRank = data.rank || "Genin";
+
+                    if (isFirstLoad) {
+                        liveCurrentRank = newRank;
+                        updateDashboardUI(liveCurrentRank, liveCurrentXP, bankedXP);
+                        updateAmbientVFX(liveCurrentRank);
+                        isFirstLoad = false;
+                        return;
+                    }
+
+                    if (newRank !== liveCurrentRank && !isAnimatingLevelUp) {
+                        isAnimatingLevelUp = true;
+                        triggerLevelUpAnimation(liveCurrentRank, newRank, liveCurrentXP, bankedXP);
+                        liveCurrentRank = newRank; 
+                    } else if (!isAnimatingLevelUp) {
+                        updateDashboardUI(liveCurrentRank, liveCurrentXP, bankedXP);
+                    }
+                }
+            });
+
+            const tasksQuery = query(collection(db, "pendingTasks"), where("operative", "==", currentUserProfile));
+            onSnapshot(tasksQuery, (snapshot) => {
+                let pendingCount = 0;
+                const historyList = document.getElementById('domHistoryList');
+                historyList.innerHTML = '';
+
+                let tasks = [];
+                snapshot.forEach(doc => { tasks.push({ id: doc.id, ...doc.data() }); });
+
+                tasks.sort((a, b) => {
+                    const timeA = a.timestamp ? a.timestamp.toMillis() : Date.now();
+                    const timeB = b.timestamp ? b.timestamp.toMillis() : Date.now();
+                    return timeB - timeA;
+                });
+
+                if(tasks.length === 0) {
+                    historyList.innerHTML = '<div class="history-item"><span style="color: var(--text-muted);">No task history yet. Time to grind!</span></div>';
+                }
+
+                tasks.forEach(task => {
+                    if(task.status === "Pending") pendingCount++;
+
+                    let itemClass = "pending";
+                    let statusColor = "var(--accent-cyan)";
+                    let amountText = "Pending Admin";
+
+                    if (task.status === "Approved") {
+                        itemClass = "approved";
+                        statusColor = "var(--accent-green)";
+                        amountText = `+${task.xpAwarded} XP`;
+                    } else if (task.status === "Declined") {
+                        itemClass = "declined";
+                        statusColor = "var(--neon-red)";
+                        amountText = "Declined";
+                    }
+
+                    let dateString = "Just now";
+                    if(task.timestamp) {
+                        const d = task.timestamp.toDate();
+                        dateString = `${d.getMonth()+1}/${d.getDate()} - ${d.getHours()}:${d.getMinutes().toString().padStart(2, '0')}`;
+                    }
+
+                    let div = document.createElement('div');
+                    div.className = `history-item ${itemClass}`;
+                    div.innerHTML = `
+                        <div class="history-details">
+                            <span>${task.taskType}</span>
+                            <span class="history-date">${dateString} | ${task.details}</span>
+                        </div>
+                        <span class="xp-gain" style="color: ${statusColor};">${amountText}</span>
+                    `;
+                    historyList.appendChild(div);
+                });
+
+                document.getElementById('btnPendingCount').innerText = `Pending Requests (${pendingCount})`;
+            });
+        }
+
+        // --- NEW: LEADERBOARD LOGIC ---
+        window.openLeaderboard = function() {
+            document.getElementById('lbModal').style.display = 'block';
+            window.switchLbTab('overall'); 
+        }
+
+        window.switchLbTab = async function(tab) {
+            document.getElementById('tab-overall').classList.remove('active');
+            document.getElementById('tab-monthly').classList.remove('active');
+            document.getElementById(`tab-${tab}`).classList.add('active');
+            
+            const container = document.getElementById('lbListContainer');
+            container.innerHTML = '<div style="text-align: center; color: var(--accent-cyan); padding: 20px;">Decrypting Data...</div>';
+
+            let leaderboardData = [];
+
+            if (tab === 'overall') {
+                const q = query(collection(db, "users"), orderBy("xp", "desc"), limit(25));
+                const snap = await getDocs(q);
+                snap.forEach(doc => {
+                    const d = doc.data();
+                    leaderboardData.push({ name: d.name, rank: d.rank || "Genin", xp: d.xp || 0 });
+                });
+            } else {
+                const now = new Date();
+                const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                
+                const q = query(collection(db, "pendingTasks"), where("status", "==", "Approved"));
+                const snap = await getDocs(q);
+                
+                let monthlyXP = {};
+                snap.forEach(doc => {
+                    const task = doc.data();
+                    if(task.timestamp && task.timestamp.toDate() >= startOfMonth) {
+                        const op = task.operative;
+                        if(!monthlyXP[op]) monthlyXP[op] = 0;
+                        monthlyXP[op] += (task.xpAwarded || 0);
+                    }
+                });
+
+                const usersSnap = await getDocs(collection(db, "users"));
+                let userRanks = {};
+                usersSnap.forEach(u => { userRanks[u.data().name] = u.data().rank || "Genin"; });
+
+                for (const [name, xp] of Object.entries(monthlyXP)) {
+                    leaderboardData.push({ name: name, rank: userRanks[name] || "Genin", xp: xp });
+                }
+                leaderboardData.sort((a, b) => b.xp - a.xp); 
+            }
+
+            renderLeaderboard(leaderboardData);
+        }
+
+        function renderLeaderboard(data) {
+            const container = document.getElementById('lbListContainer');
+            container.innerHTML = '';
+            
+            if(data.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">No data available.</div>';
+                return;
+            }
+
+            data.forEach((player, index) => {
+                let placeClass = "lb-rest";
+                if (index === 0) placeClass = "lb-1st";
+                else if (index === 1) placeClass = "lb-2nd";
+                else if (index === 2) placeClass = "lb-3rd";
+
+                const badgeSrc = (rankData[player.rank] && rankData[player.rank].image) ? rankData[player.rank].image : "Genin I.png";
+
+                let html = `
+                    <div class="lb-item ${placeClass}">
+                        <div class="lb-rank-num">#${index + 1}</div>
+                        <img src="${badgeSrc}" class="lb-badge" onerror="this.src='Genin I.png'">
+                        <div class="lb-details">
+                            <span class="lb-name">${player.name}</span>
+                            <span class="lb-rank-name">${player.rank}</span>
+                        </div>
+                        <div class="lb-xp">${player.xp.toLocaleString()} XP</div>
+                    </div>
+                `;
+                container.innerHTML += html;
+            });
+        }
+
+        // --- NEW: GAUGE CHART LOGIC ---
+        window.openGauge = async function() {
+            document.getElementById('gaugeModal').style.display = 'block';
+            
+            let days = [];
+            let xpPerDay = {};
+            for(let i=6; i>=0; i--) {
+                let d = new Date();
+                d.setDate(d.getDate() - i);
+                let dateStr = `${d.getMonth()+1}/${d.getDate()}`;
+                days.push(dateStr);
+                xpPerDay[dateStr] = 0;
+            }
+
+            const q = query(collection(db, "pendingTasks"), where("status", "==", "Approved"));
+            const snap = await getDocs(q);
+            
+            snap.forEach(doc => {
+                const task = doc.data();
+                if(task.timestamp) {
+                    let d = task.timestamp.toDate();
+                    let dateStr = `${d.getMonth()+1}/${d.getDate()}`;
+                    if(xpPerDay[dateStr] !== undefined) {
+                        xpPerDay[dateStr] += (task.xpAwarded || 0);
+                    }
+                }
+            });
+
+            let dataPoints = days.map(day => xpPerDay[day]);
+
+            const ctx = document.getElementById('activityChart').getContext('2d');
+            
+            if(chartInstance) chartInstance.destroy(); 
+            
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: days,
+                    datasets: [{
+                        label: 'Total XP Approved',
+                        data: dataPoints,
+                        borderColor: '#00f3ff',
+                        backgroundColor: 'rgba(0, 243, 255, 0.1)',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#39ff14',
+                        pointBorderColor: '#fff',
+                        pointRadius: 4,
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#1f2937' }, ticks: { color: '#9ca3af' } },
+                        x: { grid: { color: '#1f2937' }, ticks: { color: '#9ca3af' } }
+                    },
+                    plugins: { legend: { labels: { color: '#fff' } } }
+                }
+            });
+        }
+
+
+        // --- UI & MODAL HELPERS ---
+        window.openRequestModal = function() { document.getElementById('taskModal').style.display = 'block'; }
+        window.closeModals = function() {
+            document.getElementById('taskModal').style.display = 'none';
+            document.getElementById('lbModal').style.display = 'none';
+            document.getElementById('gaugeModal').style.display = 'none';
+        }
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) { window.closeModals(); }
+        }
+
+        // --- DASHBOARD RENDERERS ---
+        function updateAmbientVFX(rank) {
+            clearInterval(idleParticleInterval); 
+            const badge = document.getElementById('domRankBadge');
+            const profilePanel = document.getElementById('domProfilePanel');
+            
+            badge.classList.remove('aura-red', 'aura-light');
+
+            if (rank === "Shinobi" || rank === "Bushin") {
+                badge.classList.add('aura-red');
+                startIdleParticles(profilePanel, 'red');
+            } else if (rank === "Ronin II") {
+                badge.classList.add('aura-light');
+                startIdleParticles(profilePanel, 'white');
+            }
+        }
+
+        function startIdleParticles(container, colorClass) {
+            idleParticleInterval = setInterval(() => {
+                let p = document.createElement('div');
+                p.className = `idle-particle ${colorClass}`;
+                p.style.left = (35 + Math.random() * 30) + '%';
+                p.style.top = (25 + Math.random() * 20) + '%';
+                container.appendChild(p);
+
+                let duration = 2000 + Math.random() * 2000;
+                let tx = -30 + Math.random() * 60; 
+                let ty = -40 - Math.random() * 40; 
+
+                p.animate([
+                    { transform: 'translate(0, 0) scale(0.5)', opacity: 0 },
+                    { transform: `translate(${tx/2}px, ${ty/2}px) scale(1)`, opacity: 0.8, offset: 0.5 },
+                    { transform: `translate(${tx}px, ${ty}px) scale(0)`, opacity: 0 }
+                ], { duration: duration, easing: 'ease-in-out' }).onfinish = () => p.remove();
+            }, 500);
+        }
+
+        function updateDashboardUI(rank, currentXP, bankedXP) {
+            const data = rankData[rank] || rankData["Genin"];
+            
+            let currentRankIndex = rankOrder.indexOf(rank);
+            if (currentRankIndex === -1) { currentRankIndex = 0; rank = "Genin"; }
+
+            document.getElementById('domRankName').innerText = rank;
+            document.getElementById('domRankBadge').src = data.image || "Genin I.png";
+            document.getElementById('domMaxXp').innerText = data.req;
+            document.getElementById('domCurrentXp').innerText = currentXP;
+
+            const rewardsList = document.getElementById('domRewardsList');
+            rewardsList.innerHTML = '';
+            if (data && data.benefits) {
+                data.benefits.forEach(benefit => {
+                    let li = document.createElement('li');
+                    li.innerText = benefit;
+                    rewardsList.appendChild(li);
+                });
+            }
+
+            let prevReq = currentRankIndex > 0 ? rankData[rankOrder[currentRankIndex - 1]].req : 0;
+            let nextReq = data.req;
+
+            let levelProgressXP = currentXP - prevReq;
+            if (levelProgressXP < 0) levelProgressXP = 0;
+            
+            let levelTotalXP = nextReq - prevReq;
+            if (levelTotalXP <= 0) levelTotalXP = 1;
+
+            let percentage = (levelProgressXP / levelTotalXP) * 100;
+            if (percentage > 100) percentage = 100;
+
+            document.getElementById('domXpFill').style.width = percentage + '%';
+            document.getElementById('domXpTrail').style.width = percentage + '%';
+
+            const applyBtn = document.getElementById('btnApplyXp');
+            if (bankedXP > 0) {
+                applyBtn.innerText = `APPLY XP (+${bankedXP})`;
+                applyBtn.style.display = "block";
+                applyBtn.disabled = false;
+                applyBtn.style.opacity = "1";
+            } else {
+                applyBtn.style.display = "none";
+            }
+        }
+
+        function triggerLevelUpAnimation(oldRank, newRankName, newXP, bankedXP) {
+            clearInterval(idleParticleInterval); 
+            const badge = document.getElementById('domRankBadge');
+            const profilePanel = document.getElementById('domProfilePanel');
+            
+            badge.classList.add('anim-level-up');
+
+            let particleInterval = setInterval(() => {
+                let p = document.createElement('div');
+                p.className = 'particle';
+                p.style.left = '50%';
+                p.style.top = '30%'; 
+                profilePanel.appendChild(p);
+                
+                let angle = Math.random() * Math.PI * 2;
+                let velocity = 50 + Math.random() * 150;
+                let tx = Math.cos(angle) * velocity;
+                let ty = Math.sin(angle) * velocity;
+                
+                p.animate([
+                    { transform: 'translate(-50%, -50%) scale(1.5)', opacity: 1 },
+                    { transform: `translate(calc(-50% + ${tx}px), calc(-50% + ${ty}px)) scale(0)`, opacity: 0 }
+                ], { duration: 600, easing: 'ease-out' }).onfinish = () => p.remove();
+            }, 20); 
+
+            setTimeout(() => {
+                clearInterval(particleInterval);
+                badge.classList.remove('anim-level-up');
+                
+                let flash = document.createElement('div');
+                flash.style.position = 'fixed';
+                flash.style.inset = '0';
+                flash.style.backgroundColor = '#ffffff';
+                flash.style.zIndex = '9999';
+                flash.style.pointerEvents = 'none';
+                document.body.appendChild(flash);
+                
+                flash.animate([ {opacity: 1}, {opacity: 0} ], { duration: 800 }).onfinish = () => flash.remove();
+
+                updateDashboardUI(newRankName, newXP, bankedXP);
+                updateAmbientVFX(newRankName); 
+                isAnimatingLevelUp = false;
+
+                setTimeout(() => { alert(`🔥 RANK UP! You have been promoted to ${newRankName}!`); }, 200);
+            }, 1200);
+        }
+
+        window.executeXpClaim = async function() {
+            const applyBtn = document.getElementById('btnApplyXp');
+            
+            const bankString = applyBtn.innerText.match(/\d+/);
+            if (!bankString) return;
+            const xpClaimed = parseInt(bankString[0]);
+
+            applyBtn.disabled = true;
+            applyBtn.style.opacity = "0.5";
+            applyBtn.innerText = "ASSIMILATING...";
+
+            let targetXP = liveCurrentXP + xpClaimed;
+            let currentRankIndex = rankOrder.indexOf(liveCurrentRank);
+            if(currentRankIndex === -1) currentRankIndex = 0;
+            
+            while (currentRankIndex < rankOrder.length - 1 && targetXP >= rankData[rankOrder[currentRankIndex]].req) {
+                currentRankIndex++; 
+            }
+            
+            let newRankName = rankOrder[currentRankIndex];
+
+            try {
+                const userRef = doc(db, "users", currentUserProfile);
+                await updateDoc(userRef, {
+                    xp: targetXP,
+                    rank: newRankName,
+                    bankedXP: 0
+                });
+            } catch (error) {
+                console.error("Error claiming XP:", error);
+                applyBtn.innerText = "ERROR - TRY AGAIN";
+                applyBtn.disabled = false;
+                applyBtn.style.opacity = "1";
+            }
+        }
+
+        // FORM SUBMIT
+        document.getElementById('taskForm').addEventListener('submit', async (e) => {
+            e.preventDefault(); 
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.innerText = "TRANSMITTING...";
+
+            try {
+                await addDoc(collection(db, "pendingTasks"), {
+                    operative: document.getElementById('opName').value,
+                    taskType: document.getElementById('taskCategory').value,
+                    details: document.getElementById('taskDetails').value,
+                    witness: document.getElementById('taskWitness').value,
+                    status: "Pending",
+                    timestamp: serverTimestamp()
+                });
+                document.getElementById('taskForm').reset();
+                window.closeModals();
+            } catch (error) {
+                console.error("Transmission failed: ", error);
+            } finally {
+                submitBtn.innerText = "TRANSMIT TO COMMAND";
+            }
+        });
+    </script>
+</body>
+</html>
