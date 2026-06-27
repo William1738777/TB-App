@@ -176,7 +176,7 @@
     <div class="left-column">
         <div class="panel profile-panel" id="domProfilePanel">
             <img src="Genin I.png" alt="Rank Badge" class="rank-badge" id="domRankBadge" onerror="this.src='https://via.placeholder.com/180/0d121a/00f3ff?text=BADGE'">
-            <div class="rank-name" id="domRankName">Genin I</div>
+            <div class="rank-name" id="domRankName">Genin</div>
             
             <div class="xp-container">
                 <div class="xp-track">
@@ -344,27 +344,28 @@
         let idleParticleInterval;
         let chartInstance = null; 
 
-        // UPDATED RANK ORDER (Includes missing 'I' ranks)
+        // UPDATED EXACTLY TO YOUR SPREADSHEET
         const rankOrder = [
-            "Genin I", "Genin II", "Chunin I", "Chunin II", "Jonin I", "Jonin II", 
-            "Ronin I", "Ronin II", "Shinobi", "Bushin", "Daimyo", "Shogun", "Emperor"
+            "Genin", "Genin II", "Chunin", "Chunin II", "Jonin", "Jonin II", 
+            "Ronin", "Ronin II", "Shinobi", "Bushin", "Daimyo", "Shogun", "Emperor"
         ];
 
-        // UPDATED RANK DATA (Smoothed XP thresholds to prevent double-promotions)
+        // XP THRESHOLDS MAPPED EXACTLY FROM THE SPREADSHEET
+        // NOTE: I kept your image filenames exactly the same as before so they don't break
         const rankData = {
-            "Genin I": { req: 10000, benefits: ["None"], image: "Genin I.png" },
-            "Genin II": { req: 15000, benefits: ["None"], image: "Genin II.png" },
-            "Chunin I": { req: 20000, benefits: ["None"], image: "Chunin I.png" }, 
-            "Chunin II": { req: 25000, benefits: ["None"], image: "Chunin II.png" },
-            "Jonin I": { req: 50000, benefits: ["Rank 4 in Game"], image: "Jonin I.png" },
-            "Jonin II": { req: 80000, benefits: ["Rank 4 in Game"], image: "Jonin II.png" },
-            "Ronin I": { req: 90000, benefits: ["Rank 4 in Game"], image: "Ronin I.png" }, 
-            "Ronin II": { req: 100000, benefits: ["Rank 4 in Game"], image: "Ronin II.png" },
-            "Shinobi": { req: 150000, benefits: ["Rank 4 in Game", "Statue Spot Eligible", "Gun Skin Eligible"], image: "Shinobi.png" },
-            "Bushin": { req: 200000, benefits: ["Rank 5 in Game", "Statue Spot Eligible", "Gun Skin Eligible", "Hat Spot Eligible"], image: "Bushin.png" },
-            "Daimyo": { req: 550000, benefits: ["Rank 5 in Game", "Statue Spot Eligible", "Gun Skin Eligible", "Hat Spot Eligible", "War Leader", "Reward Priority", "Can post on Task board"], image: "Daimyo.png" },
-            "Shogun": { req: 1000000, benefits: ["Rank 5 in Game", "Statue Spot Eligible", "Gun Skin Eligible", "Hat Spot Eligible", "War Leader", "Reward Distributor", "Can post on Task board", "2K Tag Holder", "Executive Gang decisions"], image: "Shogun.png" },
-            "Emperor": { req: 2000000, benefits: ["Rank 5 in Game", "Statue Spot Eligible", "Gun Skin Eligible", "Hat Spot Eligible", "War Leader", "Reward Distributor", "Can post on Task board", "2K Tag and above Holder", "Indisputable Executive Gang decisions", "Main leader (s)"], image: "Emperor.png" }
+            "Genin": { req: 10000, benefits: ["None"], image: "Genin I.png" },
+            "Genin II": { req: 35000, benefits: ["None"], image: "Genin II.png" },
+            "Chunin": { req: 50000, benefits: ["None"], image: "Chunin I.png" }, 
+            "Chunin II": { req: 75000, benefits: ["None"], image: "Chunin II.png" },
+            "Jonin": { req: 125000, benefits: ["Rank 4 in Game"], image: "Jonin I.png" },
+            "Jonin II": { req: 205000, benefits: ["Rank 4 in Game"], image: "Jonin II.png" },
+            "Ronin": { req: 285000, benefits: ["Rank 4 in Game"], image: "Ronin I.png" }, 
+            "Ronin II": { req: 385000, benefits: ["Rank 4 in Game"], image: "Ronin II.png" },
+            "Shinobi": { req: 485000, benefits: ["Rank 4 in Game", "Statue Spot Eligible", "Gun Skin Eligible"], image: "Shinobi.png" },
+            "Bushin": { req: 685000, benefits: ["Rank 5 in Game", "Statue Spot Eligible", "Gun Skin Eligible", "Hat Spot Eligible"], image: "Bushin.png" },
+            "Daimyo": { req: 9999999, benefits: ["Rank 5 in Game", "Statue Spot Eligible", "Gun Skin Eligible", "Hat Spot Eligible", "War Leader", "Reward Priority", "Can post on Task board"], image: "Daimyo.png" },
+            "Shogun": { req: 9999999, benefits: ["Rank 5 in Game", "Statue Spot Eligible", "Gun Skin Eligible", "Hat Spot Eligible", "War Leader", "Reward Distributor", "Can post on Task board", "2K Tag Holder", "Executive Gang decisions"], image: "Shogun.png" },
+            "Emperor": { req: 9999999, benefits: ["Rank 5 in Game", "Statue Spot Eligible", "Gun Skin Eligible", "Hat Spot Eligible", "War Leader", "Reward Distributor", "Can post on Task board", "2K Tag and above Holder", "Indisputable Executive Gang decisions", "Main leader (s)"], image: "Emperor.png" }
         };
 
         // --- DASHBOARD LISTENERS ---
@@ -375,22 +376,38 @@
                     const data = docSnap.data();
                     liveCurrentXP = data.xp || 0;
                     const bankedXP = data.bankedXP || 0;
-                    let newRank = data.rank || "Genin I";
+                    let newRank = data.rank || "Genin";
 
-                    // --- THE LEGACY TRANSLATOR ---
-                    // Auto-patches old ranks on login
+                    // --- REVERSE LEGACY TRANSLATOR ---
+                    // This fixes anyone whose account was saved as "Genin I" during our recent testing
                     const legacyRanks = {
-                        "Genin": "Genin I",
-                        "Chunin": "Chunin I",
-                        "Jonin": "Jonin I",
-                        "Ronin": "Ronin I"
+                        "Genin I": "Genin",
+                        "Chunin I": "Chunin",
+                        "Jonin I": "Jonin",
+                        "Ronin I": "Ronin"
                     };
                     
                     if (legacyRanks[newRank]) {
                         newRank = legacyRanks[newRank];
                         updateDoc(userDocRef, { rank: newRank });
                     }
-                    // ------------------------------
+                    
+                    // --- THE DESYNC FIX (Auto-Rank Correction) ---
+                    // Automatically fixes players who earned XP but got stuck at lower ranks
+                    let cIndex = rankOrder.indexOf(newRank);
+                    if (cIndex === -1) cIndex = 0;
+                    const maxAutoRankIndex = rankOrder.indexOf("Bushin"); // Cap at Bushin
+
+                    let correctedIndex = cIndex;
+                    while (correctedIndex < maxAutoRankIndex && liveCurrentXP >= rankData[rankOrder[correctedIndex]].req) {
+                        correctedIndex++;
+                    }
+
+                    if (correctedIndex > cIndex) {
+                        newRank = rankOrder[correctedIndex];
+                        updateDoc(userDocRef, { rank: newRank }); // Silently patches database
+                    }
+                    // --------------------------------------------------
 
                     if (isFirstLoad) {
                         liveCurrentRank = newRank;
@@ -408,11 +425,10 @@
                         updateDashboardUI(liveCurrentRank, liveCurrentXP, bankedXP);
                     }
                 } else {
-                    // NEW RECRUIT UI FIX
                     liveCurrentXP = 0;
-                    liveCurrentRank = "Genin I";
-                    updateDashboardUI("Genin I", 0, 0);
-                    updateAmbientVFX("Genin I");
+                    liveCurrentRank = "Genin";
+                    updateDashboardUI("Genin", 0, 0);
+                    updateAmbientVFX("Genin");
                     isFirstLoad = false;
                 }
             });
@@ -496,7 +512,7 @@
                 const snap = await getDocs(q);
                 snap.forEach(doc => {
                     const d = doc.data();
-                    leaderboardData.push({ name: d.name, rank: d.rank || "Genin I", xp: d.xp || 0 });
+                    leaderboardData.push({ name: d.name, rank: d.rank || "Genin", xp: d.xp || 0 });
                 });
             } else {
                 const now = new Date();
@@ -517,10 +533,10 @@
 
                 const usersSnap = await getDocs(collection(db, "users"));
                 let userRanks = {};
-                usersSnap.forEach(u => { userRanks[u.data().name] = u.data().rank || "Genin I"; });
+                usersSnap.forEach(u => { userRanks[u.data().name] = u.data().rank || "Genin"; });
 
                 for (const [name, xp] of Object.entries(monthlyXP)) {
-                    leaderboardData.push({ name: name, rank: userRanks[name] || "Genin I", xp: xp });
+                    leaderboardData.push({ name: name, rank: userRanks[name] || "Genin", xp: xp });
                 }
                 leaderboardData.sort((a, b) => b.xp - a.xp); 
             }
@@ -672,10 +688,10 @@
         }
 
         function updateDashboardUI(rank, currentXP, bankedXP) {
-            const data = rankData[rank] || rankData["Genin I"];
+            const data = rankData[rank] || rankData["Genin"];
             
             let currentRankIndex = rankOrder.indexOf(rank);
-            if (currentRankIndex === -1) { currentRankIndex = 0; rank = "Genin I"; }
+            if (currentRankIndex === -1) { currentRankIndex = 0; rank = "Genin"; }
 
             document.getElementById('domRankName').innerText = rank;
             document.getElementById('domRankBadge').src = data.image || "Genin I.png";
@@ -780,7 +796,10 @@
             let currentRankIndex = rankOrder.indexOf(liveCurrentRank);
             if(currentRankIndex === -1) currentRankIndex = 0;
             
-            while (currentRankIndex < rankOrder.length - 1 && targetXP >= rankData[rankOrder[currentRankIndex]].req) {
+            // THE HARD CAP: Stops any auto-promotion strictly at Bushin!
+            const maxAutoRankIndex = rankOrder.indexOf("Bushin");
+
+            while (currentRankIndex < maxAutoRankIndex && targetXP >= rankData[rankOrder[currentRankIndex]].req) {
                 currentRankIndex++; 
             }
             
@@ -817,7 +836,7 @@
                     timestamp: serverTimestamp()
                 });
                 document.getElementById('taskForm').reset();
-                document.getElementById('opName').value = currentUserProfile; // FIX: Lock name after reset
+                document.getElementById('opName').value = currentUserProfile; 
                 window.closeModals();
             } catch (error) {
                 console.error("Transmission failed: ", error);
