@@ -176,7 +176,7 @@
     <div class="left-column">
         <div class="panel profile-panel" id="domProfilePanel">
             <img src="Genin I.png" alt="Rank Badge" class="rank-badge" id="domRankBadge" onerror="this.src='https://via.placeholder.com/180/0d121a/00f3ff?text=BADGE'">
-            <div class="rank-name" id="domRankName">Loading...</div>
+            <div class="rank-name" id="domRankName">Genin</div>
             
             <div class="xp-container">
                 <div class="xp-track">
@@ -184,7 +184,7 @@
                     <div class="xp-fill" id="domXpFill"></div>
                 </div>
                 <div class="xp-text">
-                    XP: <span id="domCurrentXp" style="color: var(--accent-green);">0</span> / <span id="domMaxXp">0</span>
+                    XP: <span id="domCurrentXp" style="color: var(--accent-green);">0</span> / <span id="domMaxXp">10000</span>
                 </div>
             </div>
         </div>
@@ -329,13 +329,11 @@
                 document.getElementById('opName').value = currentUserProfile;
                 startDatabaseListeners();
             } else {
-                // REDIRECT UPDATED TO index.html
                 window.location.href = "index.html";
             }
         });
 
         window.logoutUser = function() {
-            // REDIRECT UPDATED TO index.html
             signOut(auth).then(() => { window.location.href = "index.html"; });
         }
 
@@ -392,6 +390,13 @@
                     } else if (!isAnimatingLevelUp) {
                         updateDashboardUI(liveCurrentRank, liveCurrentXP, bankedXP);
                     }
+                } else {
+                    // THE FIX: Initialize default UI for brand new users
+                    liveCurrentXP = 0;
+                    liveCurrentRank = "Genin";
+                    updateDashboardUI("Genin", 0, 0);
+                    updateAmbientVFX("Genin");
+                    isFirstLoad = false;
                 }
             });
 
@@ -795,6 +800,7 @@
                     timestamp: serverTimestamp()
                 });
                 document.getElementById('taskForm').reset();
+                document.getElementById('opName').value = currentUserProfile; // FIX: Lock name after reset
                 window.closeModals();
             } catch (error) {
                 console.error("Transmission failed: ", error);
