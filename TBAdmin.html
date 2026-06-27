@@ -92,7 +92,7 @@
         
         <div id="sec-approvals" class="section active">
             <div id="taskList">
-                <div class="empty-msg">Connecting to live feed...</div>
+                <div class="empty-msg">Authenticating secure connection...</div>
             </div>
         </div>
 
@@ -135,6 +135,8 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
         import { getFirestore, collection, query, where, onSnapshot, doc, updateDoc, getDoc, setDoc, increment, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        // IMPORT AUTHENTICATION
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 
         // Register the annotation plugin for Chart.js
         Chart.register(window['chartjs-plugin-annotation']);
@@ -150,6 +152,7 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+        const auth = getAuth(app);
 
         // --- TAB SWITCHING ---
         window.switchMainTab = function(tabName) {
@@ -165,44 +168,56 @@
         }
 
         // ==========================================
-        // 1. LIVE APPROVALS LOGIC
+        // 1. LIVE APPROVALS LOGIC & SECURITY GATE
         // ==========================================
-        const q = query(collection(db, "pendingTasks"), where("status", "==", "Pending"));
-        onSnapshot(q, (querySnapshot) => {
-            const taskListEl = document.getElementById('taskList');
-            taskListEl.innerHTML = ''; 
 
-            if (querySnapshot.empty) {
-                taskListEl.innerHTML = '<div class="empty-msg">No pending tasks. The squad is resting!</div>';
-                return;
+        // The Security Gate
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                startLiveApprovals();
+            } else {
+                window.location.href = "index.html"; 
             }
-
-            querySnapshot.forEach((documentSnapshot) => {
-                const task = documentSnapshot.data();
-                const taskId = documentSnapshot.id;
-
-                const card = document.createElement('div');
-                card.className = 'task-card';
-                card.id = `card-${taskId}`;
-                
-                card.innerHTML = `
-                    <div class="task-info">
-                        <h3>Operative: <span>${task.operative}</span></h3>
-                        <p>Action: <span>${task.taskType}</span></p>
-                        <p>Details / Hours: <span>${task.details}</span></p>
-                        <p>Witness: <span>${task.witness || "None"}</span></p>
-                    </div>
-                    <div class="action-area">
-                        <input type="number" id="xp-${taskId}" class="xp-input" placeholder="XP to Award">
-                        <div class="btn-group">
-                            <button class="btn btn-approve" onclick="window.approveTask('${taskId}', '${task.operative}')">Approve</button>
-                            <button class="btn btn-decline" onclick="window.declineTask('${taskId}')">Decline</button>
-                        </div>
-                    </div>
-                `;
-                taskListEl.appendChild(card);
-            });
         });
+
+        function startLiveApprovals() {
+            const q = query(collection(db, "pendingTasks"), where("status", "==", "Pending"));
+            onSnapshot(q, (querySnapshot) => {
+                const taskListEl = document.getElementById('taskList');
+                taskListEl.innerHTML = ''; 
+
+                if (querySnapshot.empty) {
+                    taskListEl.innerHTML = '<div class="empty-msg">No pending tasks. The squad is resting!</div>';
+                    return;
+                }
+
+                querySnapshot.forEach((documentSnapshot) => {
+                    const task = documentSnapshot.data();
+                    const taskId = documentSnapshot.id;
+
+                    const card = document.createElement('div');
+                    card.className = 'task-card';
+                    card.id = `card-${taskId}`;
+                    
+                    card.innerHTML = `
+                        <div class="task-info">
+                            <h3>Operative: <span>${task.operative}</span></h3>
+                            <p>Action: <span>${task.taskType}</span></p>
+                            <p>Details / Hours: <span>${task.details}</span></p>
+                            <p>Witness: <span>${task.witness || "None"}</span></p>
+                        </div>
+                        <div class="action-area">
+                            <input type="number" id="xp-${taskId}" class="xp-input" placeholder="XP to Award">
+                            <div class="btn-group">
+                                <button class="btn btn-approve" onclick="window.approveTask('${taskId}', '${task.operative}')">Approve</button>
+                                <button class="btn btn-decline" onclick="window.declineTask('${taskId}')">Decline</button>
+                            </div>
+                        </div>
+                    `;
+                    taskListEl.appendChild(card);
+                });
+            });
+        }
 
         window.approveTask = async function(taskId, operativeName) {
             const xpInput = document.getElementById(`xp-${taskId}`).value;
